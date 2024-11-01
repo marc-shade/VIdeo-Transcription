@@ -2,7 +2,7 @@
 
 A powerful video transcription and translation tool built using OpenAI's Whisper model, Google Translate, and a Streamlit-based interface. This project supports efficient client management, transcription of video files, and multi-language translation, providing users with a seamless workflow for converting video content to text.
 
-![Video Transcription Agent Screenshot](assets/demo_screenshot.png) <!-- Optional: Add a screenshot of the app -->
+![Screenshot 2024-11-01 at 12 24 40 PM (4)](https://github.com/user-attachments/assets/64923f59-8ade-4089-b910-8558eabfff35)
 
 ## Table of Contents
 - [Features](#features)
