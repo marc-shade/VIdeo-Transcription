@@ -1,5 +1,3 @@
-Here's a comprehensive `README.md` file for your `VideoTranscription` project. This document provides an overview, installation instructions, usage examples, and additional resources for potential contributors.
-
 # Video Transcription Agent 🎥
 
 A powerful video transcription and translation tool built using OpenAI's Whisper model, Google Translate, and a Streamlit-based interface. This project supports efficient client management, transcription of video files, and multi-language translation, providing users with a seamless workflow for converting video content to text.
@@ -91,11 +89,6 @@ VideoTranscription/
 ├── crm.py                   # Client management interface and functionality
 ├── database.py              # SQLite database interaction logic
 ├── utils.py                 # Utility functions for video/audio handling, translation, and transcription
-├── test/
-│   ├── test_db.py           # Basic database tests
-│   ├── 100_0237.MP4         # Sample video files for testing
-│   ├── 100_0242.MP4
-│   ├── 100_0243.MP4
 ├── requirements.txt         # Dependencies
 └── assets/                  # Additional resources (images, etc.)
 ```
