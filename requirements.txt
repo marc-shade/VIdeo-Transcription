@@ -1,0 +1,6 @@
+streamlit
+openai-whisper
+moviepy
+googletrans
+pandas
+sqlite3
