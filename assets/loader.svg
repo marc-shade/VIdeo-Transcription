@@ -1,0 +1,30 @@
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <style>
+        .spinner {
+            animation: rotate 2s linear infinite;
+            transform-origin: center;
+        }
+        .spinner-path {
+            stroke-dasharray: 60;
+            stroke-dashoffset: 0;
+            animation: dash 1.5s ease-in-out infinite;
+        }
+        @keyframes rotate {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        @keyframes dash {
+            0% {
+                stroke-dashoffset: 60;
+            }
+            50% {
+                stroke-dashoffset: 12;
+            }
+            100% {
+                stroke-dashoffset: 60;
+            }
+        }
+    </style>
+    <circle class="spinner" cx="12" cy="12" r="10" fill="none" stroke="#FF4B4B" stroke-width="2"/>
+</svg>
