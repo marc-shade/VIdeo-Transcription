@@ -32,8 +32,8 @@ A powerful video transcription and translation tool built using OpenAI's Whisper
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/marc-shade/VideoTranscription.git
-cd VideoTranscription
+git clone https://github.com/marc-shade/Video-Transcription.git
+cd Video-Transcription
 ```
 
 ### Install Dependencies
