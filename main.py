@@ -247,7 +247,7 @@ def main():
 
     # Navigation sidebar
     with st.sidebar:
-        st.image("assets/dragon.png", use_column_width=True)
+        st.image("assets/dragon.png", use_container_width=True)
         st.title("Video Transcription Agent")
         if st.button("Transcription Service", key="nav_trans"):
             st.session_state.page = "transcription"

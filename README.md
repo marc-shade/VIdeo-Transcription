@@ -1,4 +1,4 @@
-# Video Transcription Agent 🎥
+# Video Transcription Agent 
 
 A powerful video transcription and translation tool built using OpenAI's Whisper model, Google Translate, and a Streamlit-based interface. This project supports efficient client management, transcription of video files, and multi-language translation, providing users with a seamless workflow for converting video content to text.
 
@@ -24,34 +24,95 @@ A powerful video transcription and translation tool built using OpenAI's Whisper
 
 ### Prerequisites
 
-- **Python 3.7+**
-- **Virtual Environment** (recommended): Set up a virtual environment to manage dependencies.
+- **Python 3.11** (specifically tested with Python 3.11.10)
+- **Conda** (recommended) or **virtualenv**
+- **FFmpeg** (required for video processing)
 
-### Clone the Repository
+### Quick Setup
 
+We provide setup scripts for both Unix-based systems (macOS/Linux) and Windows:
+
+#### Unix-based Systems (macOS/Linux)
 ```bash
-git clone https://github.com/marc-shade/Video-Transcription.git
-cd Video-Transcription
+# Make the setup script executable
+chmod +x setup.sh
+
+# Run the setup script
+./setup.sh
 ```
 
-### Install Dependencies
-
-Use the following command to install the required dependencies:
-
-```bash
-pip install -r requirements.txt
+#### Windows
+```batch
+# Run the setup script
+setup.bat
 ```
 
-The requirements include:
-- `streamlit`: For the web interface.
-- `whisper`: For transcription using OpenAI’s Whisper model.
-- `moviepy`: To handle video and audio extraction.
-- `googletrans`: For translating transcriptions to multiple languages.
-- `sqlite3`: For database management.
+These scripts will:
+1. Check for required system dependencies (Conda, FFmpeg)
+2. Create a new Conda environment with Python 3.11
+3. Install all required Python packages
+4. Guide you through starting the application
 
-### Database Initialization
+### Manual Setup
 
-The application will create a SQLite database (`transcription.db`) if it does not exist. This database will store client information and transcription data.
+If you prefer to set up manually or the setup scripts don't work for your system, follow these steps:
+
+### Installation Steps
+
+1. **Install FFmpeg** (if not already installed):
+   ```bash
+   # On macOS using Homebrew
+   brew install ffmpeg
+
+   # On Ubuntu/Debian
+   sudo apt-get update && sudo apt-get install ffmpeg
+
+   # On Windows using Chocolatey
+   choco install ffmpeg
+   ```
+
+2. **Create and activate a Conda environment**:
+   ```bash
+   # Create new environment with Python 3.11
+   conda create -n video_env python=3.11
+   
+   # Activate the environment
+   conda activate video_env
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   # Install required packages
+   pip install -r requirements.txt
+   ```
+
+### Troubleshooting Common Issues
+
+1. **ModuleNotFoundError: No module named 'moviepy.editor'**
+   - Try reinstalling moviepy with a specific version:
+     ```bash
+     pip install moviepy==1.0.3
+     ```
+
+2. **FFmpeg related errors**
+   - Ensure FFmpeg is installed and accessible in your system PATH
+   - For conda users, you can also install ffmpeg via conda:
+     ```bash
+     conda install ffmpeg
+     ```
+
+3. **Python version conflicts**
+   - Make sure you're using Python 3.11
+   - Check your Python version with:
+     ```bash
+     python --version
+     ```
+
+4. **Streamlit interface issues**
+   - Install the watchdog module for better performance:
+     ```bash
+     pip install watchdog
+     ```
 
 ## Usage
 
