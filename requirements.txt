@@ -3,5 +3,4 @@ openai-whisper
 moviepy
 googletrans
 pandas
-sqlite3
 whisper
