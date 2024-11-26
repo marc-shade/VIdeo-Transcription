@@ -1,170 +1,127 @@
-# Video Transcription Agent 
+# 🎥 AI Video Transcription with Persona Generation
 
-A powerful video transcription and translation tool built using OpenAI's Whisper model, Google Translate, and a Streamlit-based interface. This project supports efficient client management, transcription of video files, and multi-language translation, providing users with a seamless workflow for converting video content to text.
+A powerful video transcription tool that not only transcribes videos but also generates AI personas that can engage in conversations about the content. Built with Streamlit and powered by Ollama for local AI processing.
 
-![Screenshot 2024-11-01 at 12 24 40 PM (4)](https://github.com/user-attachments/assets/64923f59-8ade-4089-b910-8558eabfff35)
+## ✨ Features
 
-## Table of Contents
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [File Structure](#file-structure)
-- [Contributing](#contributing)
-- [License](#license)
+- 🎬 Video to text transcription using Whisper
+- 🌐 Multi-language translation support
+- 🤖 AI persona generation from transcripts
+- 💬 Interactive chat with generated personas
+- 🔄 Dynamic model selection from local Ollama installation
+- 📊 Client and transcription management
+- 🔒 Local AI processing with Ollama
 
-## Features
+## 🚀 Recent Updates
 
-- **Client Management**: Add, edit, view, and delete client profiles with a straightforward CRM interface.
-- **Video Transcription**: Transcribe audio from video files using OpenAI's Whisper model, with optional timestamp inclusion.
-- **Language Translation**: Translate transcriptions to multiple languages with Google Translate integration.
-- **Bulk Import**: Process single video files or entire directories of videos.
-- **Export Options**: Download selected or bulk transcription results in a text format.
+- Added dynamic Ollama model selection
+- Improved persona generation and chat interface
+- Added ability to regenerate personas
+- Enhanced error handling and feedback
+- Improved database management with migrations
 
-## Installation
+## 🛠️ Prerequisites
 
-### Prerequisites
+1. Python 3.11 or higher
+2. FFmpeg installed on your system
+3. [Ollama](https://ollama.ai/) installed and running
+4. At least one Ollama model pulled (e.g., `ollama pull mistral:instruct`)
 
-- **Python 3.11** (specifically tested with Python 3.11.10)
-- **Conda** (recommended) or **virtualenv**
-- **FFmpeg** (required for video processing)
+## 📦 Installation
 
-### Quick Setup
-
-We provide setup scripts for both Unix-based systems (macOS/Linux) and Windows:
-
-#### Unix-based Systems (macOS/Linux)
+1. Clone the repository:
 ```bash
-# Make the setup script executable
-chmod +x setup.sh
-
-# Run the setup script
-./setup.sh
+git clone https://github.com/yourusername/Video-Transcription.git
+cd Video-Transcription
 ```
 
-#### Windows
-```batch
-# Run the setup script
-setup.bat
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-These scripts will:
-1. Check for required system dependencies (Conda, FFmpeg)
-2. Create a new Conda environment with Python 3.11
-3. Install all required Python packages
-4. Guide you through starting the application
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-### Manual Setup
+4. Install FFmpeg (if not already installed):
+- macOS: `brew install ffmpeg`
+- Windows: Download from [FFmpeg website](https://ffmpeg.org/download.html)
+- Linux: `sudo apt-get install ffmpeg`
 
-If you prefer to set up manually or the setup scripts don't work for your system, follow these steps:
+5. Install and start Ollama:
+- Follow instructions at [ollama.ai](https://ollama.ai/)
+- Pull a model: `ollama pull mistral:instruct`
 
-### Installation Steps
+## 🚀 Usage
 
-1. **Install FFmpeg** (if not already installed):
-   ```bash
-   # On macOS using Homebrew
-   brew install ffmpeg
+1. Start the Ollama server:
+```bash
+ollama serve
+```
 
-   # On Ubuntu/Debian
-   sudo apt-get update && sudo apt-get install ffmpeg
-
-   # On Windows using Chocolatey
-   choco install ffmpeg
-   ```
-
-2. **Create and activate a Conda environment**:
-   ```bash
-   # Create new environment with Python 3.11
-   conda create -n video_env python=3.11
-   
-   # Activate the environment
-   conda activate video_env
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   # Install required packages
-   pip install -r requirements.txt
-   ```
-
-### Troubleshooting Common Issues
-
-1. **ModuleNotFoundError: No module named 'moviepy.editor'**
-   - Try reinstalling moviepy with a specific version:
-     ```bash
-     pip install moviepy==1.0.3
-     ```
-
-2. **FFmpeg related errors**
-   - Ensure FFmpeg is installed and accessible in your system PATH
-   - For conda users, you can also install ffmpeg via conda:
-     ```bash
-     conda install ffmpeg
-     ```
-
-3. **Python version conflicts**
-   - Make sure you're using Python 3.11
-   - Check your Python version with:
-     ```bash
-     python --version
-     ```
-
-4. **Streamlit interface issues**
-   - Install the watchdog module for better performance:
-     ```bash
-     pip install watchdog
-     ```
-
-## Usage
-
-To start the application, run:
-
+2. Run the application:
 ```bash
 streamlit run main.py
 ```
 
-This command will open a new browser window with the application interface. Follow the instructions below to interact with the app.
+3. Access the web interface at `http://localhost:8501`
 
-### Basic Workflow
+## 💡 Features in Detail
 
-1. **Client Management**:
-   - Navigate to **Client Management** from the sidebar.
-   - Add new clients or edit existing client profiles.
-   - View, manage, and delete client transcriptions as needed.
+### Video Transcription
+- Upload video files
+- Automatic transcription using Whisper
+- Optional timestamp inclusion
+- Support for multiple video formats
 
-2. **Transcription Service**:
-   - Select an existing client from the dropdown or add a new client if none exist.
-   - Upload a video file for transcription (supported formats: `.mp4`, `.avi`, `.mov`, `.mkv`, `.wmv`).
-   - Choose optional settings such as timestamp inclusion and translation language.
-   - Start the transcription process and view progress.
-   - Download the generated transcription as a `.txt` file.
+### Translation
+- Translate transcriptions to multiple languages
+- Powered by deep-translator
+- Maintains formatting and structure
 
-3. **Bulk Directory Import**:
-   - For batch processing, input the path to a directory containing multiple video files.
-   - Process the entire directory in one go, with individual progress tracking for each file.
+### AI Persona Generation
+- Analyzes speaking patterns and content
+- Creates context-aware personas
+- Generates detailed system prompts
+- Supports multiple Ollama models
+- Regenerate personas as needed
 
-## File Structure
+### Interactive Chat
+- Chat with generated personas
+- Context-aware responses
+- Maintains chat history
+- Real-time response generation
 
+## 🔧 Configuration
+
+The application uses several environment variables that can be set in a `.env` file:
+
+```env
+OLLAMA_API_BASE=http://localhost:11434
+DEFAULT_MODEL=mistral:instruct
 ```
-VideoTranscription/
-├── main.py                  # Main application entry point with Streamlit interface
-├── crm.py                   # Client management interface and functionality
-├── database.py              # SQLite database interaction logic
-├── utils.py                 # Utility functions for video/audio handling, translation, and transcription
-├── requirements.txt         # Dependencies
-└── assets/                  # Additional resources (images, etc.)
-```
 
-### Main Files
+## 📝 Database Schema
 
-- **`main.py`**: Hosts the Streamlit interface, manages navigation, and provides the video transcription process.
-- **`crm.py`**: Contains the client relationship management system to add, view, edit, and delete clients and their transcriptions.
-- **`database.py`**: Manages database connections and CRUD operations for clients and transcriptions.
-- **`utils.py`**: Provides utilities for extracting audio, translating text, and transcribing audio using Whisper.
+The application uses SQLite with the following main tables:
+- clients: Store client information
+- transcriptions: Store video transcriptions
+- persona_prompts: Store generated AI personas
 
-## Acknowledgments
+## 🤝 Contributing
 
-This project was made possible with the following technologies:
-- [OpenAI Whisper](https://github.com/openai/whisper)
-- [Streamlit](https://streamlit.io/)
-- [Google Translate API](https://py-googletrans.readthedocs.io/)
-- [moviepy](https://zulko.github.io/moviepy/)
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- OpenAI Whisper for transcription
+- Ollama for local AI processing
+- Streamlit for the web interface
+- All other open-source contributors

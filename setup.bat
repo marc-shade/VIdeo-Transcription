@@ -1,51 +1,47 @@
 @echo off
-SETLOCAL
+echo 🚀 Setting up Video Transcription with AI Persona...
 
-:: Check if conda is installed
-where conda >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo Conda is not installed. Please install Conda first.
-    echo Visit: https://docs.conda.io/en/latest/miniconda.html
+REM Check Python version
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❌ Python 3 is required but not found. Please install Python 3.11 or higher.
     exit /b 1
 )
 
-:: Check if ffmpeg is installed
-where ffmpeg >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo FFmpeg is not installed. Please install it using one of these methods:
-    echo 1. Install using Chocolatey: choco install ffmpeg
-    echo 2. Download from: https://www.gyan.dev/ffmpeg/builds/
-    echo Add FFmpeg to your system PATH and run this script again.
+REM Check FFmpeg
+ffmpeg -version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❌ FFmpeg is required but not found.
+    echo Please install FFmpeg from https://ffmpeg.org/download.html
     exit /b 1
 )
 
-:: Create conda environment
-echo Creating conda environment 'video_env' with Python 3.11...
-call conda create -n video_env python=3.11 -y
-if %ERRORLEVEL% NEQ 0 (
-    echo Failed to create conda environment.
+REM Check Ollama
+ollama -v >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❌ Ollama is required but not found.
+    echo Please install Ollama from https://ollama.ai
     exit /b 1
 )
 
-:: Activate environment
-echo Activating conda environment...
-call conda activate video_env
-if %ERRORLEVEL% NEQ 0 (
-    echo Failed to activate conda environment.
-    exit /b 1
+REM Create virtual environment if it doesn't exist
+if not exist "venv" (
+    echo Creating virtual environment...
+    python -m venv venv
 )
 
-:: Install dependencies
-echo Installing Python dependencies...
+REM Activate virtual environment
+call venv\Scripts\activate.bat
+
+REM Upgrade pip
+echo Upgrading pip...
+python -m pip install --upgrade pip
+
+REM Install requirements
+echo Installing requirements...
 pip install -r requirements.txt
-if %ERRORLEVEL% NEQ 0 (
-    echo Failed to install dependencies.
-    exit /b 1
-)
 
-echo Setup completed successfully!
-echo To start using the application:
-echo 1. Run: conda activate video_env
-echo 2. Run: streamlit run main.py
-
-ENDLOCAL
+echo ✨ Setup complete! To start the application:
+echo 1. Start Ollama server: ollama serve
+echo 2. Pull a model (if not done): ollama pull mistral:instruct
+echo 3. Run the app: streamlit run main.py

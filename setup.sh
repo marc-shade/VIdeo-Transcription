@@ -1,53 +1,60 @@
 #!/bin/bash
 
-# Check if conda is installed
-if ! command -v conda &> /dev/null; then
-    echo "Conda is not installed. Please install Conda first."
-    echo "Visit: https://docs.conda.io/en/latest/miniconda.html"
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+echo "🚀 Setting up Video Transcription with AI Persona..."
+
+# Check Python version
+if command_exists python3; then
+    python_version=$(python3 --version 2>&1 | awk '{print $2}')
+    echo "✓ Found Python version $python_version"
+else
+    echo "❌ Python 3 is required but not found. Please install Python 3.11 or higher."
     exit 1
 fi
 
-# Check if ffmpeg is installed
-if ! command -v ffmpeg &> /dev/null; then
-    echo "FFmpeg is not installed. Attempting to install..."
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        if ! command -v brew &> /dev/null; then
-            echo "Homebrew is not installed. Please install Homebrew first."
-            echo "Visit: https://brew.sh"
-            exit 1
-        fi
-        brew install ffmpeg
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        # Linux
-        if command -v apt-get &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y ffmpeg
-        elif command -v yum &> /dev/null; then
-            sudo yum install -y ffmpeg
-        else
-            echo "Could not install FFmpeg. Please install it manually."
-            exit 1
-        fi
-    else
-        echo "Unsupported operating system. Please install FFmpeg manually."
-        exit 1
-    fi
+# Check if FFmpeg is installed
+if command_exists ffmpeg; then
+    echo "✓ FFmpeg is installed"
+else
+    echo "❌ FFmpeg is required but not found."
+    echo "Please install FFmpeg:"
+    echo "- macOS: brew install ffmpeg"
+    echo "- Linux: sudo apt-get install ffmpeg"
+    echo "- Windows: Download from https://ffmpeg.org/download.html"
+    exit 1
 fi
 
-# Create conda environment
-echo "Creating conda environment 'video_env' with Python 3.11..."
-conda create -n video_env python=3.11 -y
+# Check if Ollama is installed
+if command_exists ollama; then
+    echo "✓ Ollama is installed"
+else
+    echo "❌ Ollama is required but not found."
+    echo "Please install Ollama from https://ollama.ai"
+    exit 1
+fi
 
-# Activate environment
-echo "Activating conda environment..."
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate video_env
+# Create virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv venv
+fi
 
-# Install dependencies
-echo "Installing Python dependencies..."
+# Activate virtual environment
+source venv/bin/activate
+
+# Install/upgrade pip
+echo "Upgrading pip..."
+pip install --upgrade pip
+
+# Install requirements
+echo "Installing requirements..."
 pip install -r requirements.txt
 
-echo "Setup completed successfully!"
-echo "To start using the application:"
-echo "1. Run: conda activate video_env"
-echo "2. Run: streamlit run main.py"
+echo "✨ Setup complete! To start the application:"
+echo "1. Start Ollama server: ollama serve"
+echo "2. Pull a model (if not done): ollama pull mistral:instruct"
+echo "3. Run the app: streamlit run main.py"
