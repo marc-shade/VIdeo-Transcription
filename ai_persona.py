@@ -1,11 +1,13 @@
 import requests
+import streamlit as st
 from typing import Dict, Optional, Tuple, List
 
 class PersonaAnalyzer:
-    def __init__(self, model: str = "mistral:instruct", api_base: str = "http://localhost:11434"):
+    def __init__(self, model: str = "mistral:instruct", api_base: str = "http://localhost:11434", **kwargs):
         """Initialize the PersonaAnalyzer with Ollama configuration."""
         self.model = model
         self.api_base = api_base
+        self.options = kwargs.get('options', {})
 
     @staticmethod
     def get_available_models(api_base: str = "http://localhost:11434") -> List[str]:
@@ -21,7 +23,7 @@ class PersonaAnalyzer:
 
     def _generate_ollama_completion(self, system: str, user: str) -> str:
         """
-        Generate completion using Ollama API.
+        Generate completion using Ollama API with current settings.
         """
         try:
             response = requests.post(
@@ -30,7 +32,8 @@ class PersonaAnalyzer:
                     "model": self.model,
                     "system": system,
                     "prompt": user,
-                    "stream": False
+                    "stream": False,
+                    "options": self.options
                 }
             )
             response.raise_for_status()

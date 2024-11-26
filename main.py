@@ -9,6 +9,7 @@ from utils import (
 from database import TranscriptionDB
 import ai_persona
 from typing import Tuple, Optional
+import json
 
 def initialize_session_state():
     """Initialize session state variables."""
@@ -17,52 +18,202 @@ def initialize_session_state():
     if 'ollama_settings' not in st.session_state:
         st.session_state.ollama_settings = {
             'api_base': "http://localhost:11434",
-            'model': "mistral:instruct"
+            'model': "mistral:instruct",
+            'temperature': 0.7,
+            'top_p': 0.9,
+            'top_k': 40,
+            'repeat_penalty': 1.1,
+            'max_tokens': 1024,
+            'context_window': 4096
         }
+    if 'show_settings' not in st.session_state:
+        st.session_state.show_settings = False
+
+def save_settings():
+    """Save current settings to a JSON file."""
+    settings_file = "settings.json"
+    try:
+        with open(settings_file, 'w') as f:
+            json.dump(st.session_state.ollama_settings, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving settings: {str(e)}")
+        return False
+
+def load_settings():
+    """Load settings from JSON file."""
+    settings_file = "settings.json"
+    try:
+        with open(settings_file, 'r') as f:
+            settings = json.load(f)
+            st.session_state.ollama_settings.update(settings)
+        return True
+    except FileNotFoundError:
+        return False
+    except Exception as e:
+        print(f"Error loading settings: {str(e)}")
+        return False
 
 def render_sidebar_settings():
     """Render Ollama settings in the sidebar."""
-    st.sidebar.title("🤖 AI Settings")
+    st.sidebar.title("🎥 Video Transcription")
     
-    # Ollama API settings
-    st.sidebar.subheader("Ollama Configuration")
-    
-    # API Base URL
-    api_base = st.sidebar.text_input(
-        "API Base URL",
-        value=st.session_state.ollama_settings['api_base'],
-        help="The base URL for your Ollama instance"
-    )
-    
-    # Fetch available models
-    try:
-        available_models = ai_persona.PersonaAnalyzer.get_available_models(api_base)
-    except:
-        available_models = ["mistral:instruct"]
-        st.sidebar.error("⚠️ Could not fetch models. Is Ollama running?")
-    
-    # Model selection
-    model = st.sidebar.selectbox(
-        "Model",
-        options=available_models,
-        index=available_models.index(st.session_state.ollama_settings['model']) if st.session_state.ollama_settings['model'] in available_models else 0,
-        help="Select the AI model to use for persona generation and chat"
-    )
-    
-    # Update settings if changed
-    if (api_base != st.session_state.ollama_settings['api_base'] or 
-        model != st.session_state.ollama_settings['model']):
-        st.session_state.ollama_settings.update({
+    # Ollama API settings in a collapsible section
+    with st.sidebar.expander("🤖 AI Settings", expanded=False):
+        st.subheader("Ollama Configuration")
+        
+        # API Base URL
+        api_base = st.text_input(
+            "API Base URL",
+            value=st.session_state.ollama_settings['api_base'],
+            help="The base URL for your Ollama instance"
+        )
+        
+        # Fetch available models
+        try:
+            available_models = ai_persona.PersonaAnalyzer.get_available_models(api_base)
+        except:
+            available_models = ["mistral:instruct"]
+            st.error("⚠️ Could not fetch models. Is Ollama running?")
+        
+        # Model selection
+        model = st.selectbox(
+            "Model",
+            options=available_models,
+            index=available_models.index(st.session_state.ollama_settings['model']) if st.session_state.ollama_settings['model'] in available_models else 0,
+            help="Select the AI model to use for persona generation and chat"
+        )
+        
+        # Advanced model parameters
+        st.subheader("Model Parameters")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            temperature = st.slider(
+                "Temperature",
+                min_value=0.0,
+                max_value=2.0,
+                value=st.session_state.ollama_settings['temperature'],
+                step=0.1,
+                help="Controls randomness in responses"
+            )
+            
+            top_p = st.slider(
+                "Top P",
+                min_value=0.0,
+                max_value=1.0,
+                value=st.session_state.ollama_settings['top_p'],
+                step=0.1,
+                help="Nucleus sampling threshold"
+            )
+            
+            repeat_penalty = st.slider(
+                "Repeat Penalty",
+                min_value=1.0,
+                max_value=2.0,
+                value=st.session_state.ollama_settings['repeat_penalty'],
+                step=0.1,
+                help="Penalty for repeating tokens"
+            )
+        
+        with col2:
+            top_k = st.slider(
+                "Top K",
+                min_value=1,
+                max_value=100,
+                value=st.session_state.ollama_settings['top_k'],
+                help="Limits vocabulary in responses"
+            )
+            
+            max_tokens = st.slider(
+                "Max Tokens",
+                min_value=128,
+                max_value=4096,
+                value=st.session_state.ollama_settings['max_tokens'],
+                step=128,
+                help="Maximum response length"
+            )
+            
+            context_window = st.slider(
+                "Context Window",
+                min_value=512,
+                max_value=8192,
+                value=st.session_state.ollama_settings['context_window'],
+                step=512,
+                help="Token context window size"
+            )
+        
+        # Save settings button
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("💾 Save Settings"):
+                if save_settings():
+                    st.success("Settings saved!")
+                else:
+                    st.error("Failed to save settings")
+        
+        with col2:
+            if st.button("🔄 Reset Defaults"):
+                st.session_state.ollama_settings = {
+                    'api_base': "http://localhost:11434",
+                    'model': "mistral:instruct",
+                    'temperature': 0.7,
+                    'top_p': 0.9,
+                    'top_k': 40,
+                    'repeat_penalty': 1.1,
+                    'max_tokens': 1024,
+                    'context_window': 4096
+                }
+                st.experimental_rerun()
+        
+        # Update settings if changed
+        current_settings = {
             'api_base': api_base,
-            'model': model
-        })
-        st.rerun()
+            'model': model,
+            'temperature': temperature,
+            'top_p': top_p,
+            'top_k': top_k,
+            'repeat_penalty': repeat_penalty,
+            'max_tokens': max_tokens,
+            'context_window': context_window
+        }
+        
+        if current_settings != st.session_state.ollama_settings:
+            st.session_state.ollama_settings.update(current_settings)
+            st.rerun()
+    
+    # Client Management section
+    with st.sidebar.expander("👥 Client Management", expanded=False):
+        st.subheader("Add New Client")
+        with st.form("add_client_form"):
+            new_name = st.text_input("Client Name")
+            new_email = st.text_input("Client Email")
+            
+            if st.form_submit_button("Add Client"):
+                if new_name and new_email:
+                    try:
+                        db.add_client(new_name, new_email)
+                        st.success("Client added successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error adding client: {str(e)}")
+                else:
+                    st.error("Please fill in all fields!")
 
 def get_persona_analyzer() -> ai_persona.PersonaAnalyzer:
     """Get a PersonaAnalyzer instance with current settings."""
+    options = {
+        "temperature": st.session_state.ollama_settings['temperature'],
+        "top_p": st.session_state.ollama_settings['top_p'],
+        "top_k": st.session_state.ollama_settings['top_k'],
+        "repeat_penalty": st.session_state.ollama_settings['repeat_penalty'],
+        "num_predict": st.session_state.ollama_settings['max_tokens'],
+        "num_ctx": st.session_state.ollama_settings['context_window']
+    }
     return ai_persona.PersonaAnalyzer(
         model=st.session_state.ollama_settings['model'],
-        api_base=st.session_state.ollama_settings['api_base']
+        api_base=st.session_state.ollama_settings['api_base'],
+        options=options
     )
 
 def get_client_list():
@@ -226,6 +377,7 @@ def render_transcription_interface():
     """Main interface for the transcription app."""
     check_environment()
     initialize_session_state()
+    load_settings()  # Load saved settings if available
     render_sidebar_settings()
     st.title("🎥 Video to Text Transcription")
     
