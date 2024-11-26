@@ -31,7 +31,7 @@ A powerful video transcription tool that not only transcribes videos but also ge
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/Video-Transcription.git
+git clone https://github.com/marc-shade/Video-Transcription.git
 cd Video-Transcription
 ```
 
