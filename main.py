@@ -15,17 +15,30 @@ def initialize_session_state():
     """Initialize session state variables."""
     if 'messages' not in st.session_state:
         st.session_state.messages = []
+    
+    # Default settings
+    default_settings = {
+        'api_base': "http://localhost:11434",
+        'model': "mistral:instruct",
+        'temperature': 0.7,
+        'top_p': 0.9,
+        'top_k': 40,
+        'repeat_penalty': 1.1,
+        'max_tokens': 1024,
+        'context_window': 4096
+    }
+    
+    # Try to load saved settings, fall back to defaults if not found
     if 'ollama_settings' not in st.session_state:
-        st.session_state.ollama_settings = {
-            'api_base': "http://localhost:11434",
-            'model': "mistral:instruct",
-            'temperature': 0.7,
-            'top_p': 0.9,
-            'top_k': 40,
-            'repeat_penalty': 1.1,
-            'max_tokens': 1024,
-            'context_window': 4096
-        }
+        settings_file = "settings.json"
+        try:
+            with open(settings_file, 'r') as f:
+                saved_settings = json.load(f)
+                # Merge saved settings with defaults (in case new settings were added)
+                st.session_state.ollama_settings = {**default_settings, **saved_settings}
+        except (FileNotFoundError, json.JSONDecodeError):
+            st.session_state.ollama_settings = default_settings.copy()
+    
     if 'show_settings' not in st.session_state:
         st.session_state.show_settings = False
 
@@ -45,8 +58,10 @@ def load_settings():
     settings_file = "settings.json"
     try:
         with open(settings_file, 'r') as f:
-            settings = json.load(f)
-            st.session_state.ollama_settings.update(settings)
+            saved_settings = json.load(f)
+            # Update session state with saved settings
+            st.session_state.ollama_settings.update(saved_settings)
+            # No rerun needed here as this is called during initialization
         return True
     except FileNotFoundError:
         return False
@@ -72,15 +87,23 @@ def render_sidebar_settings():
         # Fetch available models
         try:
             available_models = ai_persona.PersonaAnalyzer.get_available_models(api_base)
+            if not available_models:
+                available_models = ["mistral:instruct"]
+                st.error("⚠️ No models found. Is Ollama running?")
         except:
             available_models = ["mistral:instruct"]
             st.error("⚠️ Could not fetch models. Is Ollama running?")
+        
+        # Ensure the current model is in the list
+        current_model = st.session_state.ollama_settings['model']
+        if current_model not in available_models:
+            available_models.append(current_model)
         
         # Model selection
         model = st.selectbox(
             "Model",
             options=available_models,
-            index=available_models.index(st.session_state.ollama_settings['model']) if st.session_state.ollama_settings['model'] in available_models else 0,
+            index=available_models.index(current_model),
             help="Select the AI model to use for persona generation and chat"
         )
         
@@ -164,7 +187,8 @@ def render_sidebar_settings():
                     'max_tokens': 1024,
                     'context_window': 4096
                 }
-                st.experimental_rerun()
+                save_settings()  # Save the default settings
+                st.rerun()
         
         # Update settings if changed
         current_settings = {
@@ -180,6 +204,7 @@ def render_sidebar_settings():
         
         if current_settings != st.session_state.ollama_settings:
             st.session_state.ollama_settings.update(current_settings)
+            save_settings()  # Auto-save when settings change
             st.rerun()
     
     # Client Management section
