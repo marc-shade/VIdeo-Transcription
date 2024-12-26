@@ -625,7 +625,7 @@ def render_transcription_interface():
     load_settings()  # Load saved settings if available
     
     # Display dragon image at the top of the sidebar
-    st.sidebar.image('assets/dragon.png', use_column_width=True)
+    st.sidebar.image('assets/dragon.png')
     
     render_sidebar_settings()
     st.title("🎥 Video to Text Transcription")
