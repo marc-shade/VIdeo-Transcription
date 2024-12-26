@@ -1,8 +1,8 @@
 import whisper
-from moviepy.editor import VideoFileClip
+import ffmpeg
+from deep_translator import GoogleTranslator
 import tempfile
 import os
-from deep_translator import GoogleTranslator
 import soundfile as sf
 import librosa
 
@@ -15,7 +15,7 @@ def is_valid_video_format(filename):
 
 def extract_audio(video_path):
     """
-    Extract audio from video or audio file
+    Extract audio from video or audio file using ffmpeg
     """
     try:
         # Determine file type
@@ -36,12 +36,14 @@ def extract_audio(video_path):
             
             return temp_audio_path
 
-        # If it's a video file, use moviepy
-        video = VideoFileClip(video_path)
-        
-        # Extract audio
-        video.audio.write_audiofile(temp_audio_path, verbose=False, logger=None)
-        video.close()
+        # If it's a video file, use ffmpeg
+        (
+            ffmpeg
+            .input(video_path)
+            .output(temp_audio_path, acodec='pcm_s16le', ac=1, ar='16000')
+            .overwrite_output()
+            .run(capture_stdout=True, capture_stderr=True)
+        )
 
         return temp_audio_path
 
