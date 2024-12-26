@@ -160,3 +160,29 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Ollama for local AI processing
 - Streamlit for the web interface
 - All other open-source contributors
+
+## Troubleshooting
+
+### PyArrow Installation Issues
+
+If you encounter problems installing PyArrow (a Streamlit dependency), try the following:
+
+1. Use pre-built wheels:
+```bash
+pip install --only-binary=:all: pyarrow
+```
+
+2. If you're on an older system or experiencing build errors, you can:
+   - Upgrade pip and setuptools
+   - Install build dependencies
+   - Try specifying a specific version
+
+Example:
+```bash
+pip install --upgrade pip setuptools wheel
+pip install "pyarrow[build]"
+# Or specify an exact version
+pip install pyarrow==14.0.2
+```
+
+Note: PyArrow can be sensitive to system configurations and Python versions. The pre-built wheel method is often the most reliable.
