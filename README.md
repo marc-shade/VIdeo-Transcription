@@ -27,47 +27,50 @@ A powerful video transcription tool that not only transcribes videos but also ge
 3. [Ollama](https://ollama.ai/) installed and running
 4. At least one Ollama model pulled (e.g., `ollama pull mistral:instruct`)
 
-## 📦 Installation
+## 📦 Setup and Installation
 
-### Dependencies and Installation
-
-#### Prerequisites
+### Prerequisites
 - Python 3.10+
-- pip
-- FFmpeg (for audio/video processing)
+- pip or conda
+- FFmpeg
 
-#### Installation Steps
-1. Clone the repository:
-```bash
-git clone https://github.com/marc-shade/Video-Transcription.git
-cd Video-Transcription
-```
+### Virtual Environment Setup
 
-2. Create a virtual environment:
+#### Using venv (Python's built-in virtual environment)
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+# Create a virtual environment
+python3 -m venv venv
 
-3. Install dependencies:
-```bash
+# Activate the virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-4. Install additional system dependencies:
-- macOS: `brew install ffmpeg`
-- Ubuntu/Debian: `sudo apt-get install ffmpeg`
-- Windows: Download from FFmpeg official website
-
-#### Running the Application
+#### Using Conda
 ```bash
-streamlit run main.py
+# Create a new conda environment
+conda create -n video-transcription python=3.11
+
+# Activate the environment
+conda activate video-transcription
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Optional: Install additional conda-specific packages if needed
+conda install ffmpeg
 ```
 
-#### Troubleshooting
-- Ensure all dependencies are correctly installed
-- Check that FFmpeg is in your system PATH
-- Verify Python version compatibility
+### System Dependencies
+- **FFmpeg**: Required for audio/video processing
+  - macOS: `brew install ffmpeg`
+  - Ubuntu/Debian: `sudo apt-get install ffmpeg`
+  - Windows: Download from [FFmpeg official site](https://ffmpeg.org/download.html)
 
 ## 🚀 Usage
 
