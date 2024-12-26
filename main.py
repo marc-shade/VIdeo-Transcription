@@ -4,6 +4,8 @@ import requests
 import warnings
 import logging
 import io
+import time
+import pandas as pd
 
 # Suppress specific warnings
 warnings.filterwarnings("ignore", message=".*is not a valid config option.*")
@@ -237,60 +239,76 @@ def render_sidebar_settings():
     client_management_tab = st.sidebar.expander("Manage Clients", expanded=False)
     
     with client_management_tab:
-        st.subheader("Existing Clients")
+        render_client_management(db)
+
+def render_client_management(db):
+    """Render the client management section."""
+    st.header("🤝 Client Management")
+    
+    # Get current list of clients
+    clients = db.get_all_clients()
+    
+    # Client List Section
+    st.subheader("Existing Clients")
+    if not clients:
+        st.info("No clients found. Add a new client below.")
+    else:
+        # Create a DataFrame for clients
+        client_df = pd.DataFrame(clients, columns=['ID', 'Name', 'Email'])
+        st.dataframe(client_df, hide_index=True)
+    
+    # Add Client Form with a unique key
+    st.subheader("Add New Client")
+    with st.form(key=f"add_client_form_{int(time.time())}"):
+        name = st.text_input("Client Name")
+        email = st.text_input("Client Email")
         
-        # Track if a delete confirmation is needed
-        if 'client_to_delete' not in st.session_state:
-            st.session_state.client_to_delete = None
+        submit_button = st.form_submit_button("Add Client")
         
-        clients = get_client_list()
-        for client_name, client_id in clients.items():
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"{client_name}")
-            with col2:
-                if st.button(f"🗑️", key=f"delete_client_{client_id}"):
-                    # Set the client to be deleted
-                    st.session_state.client_to_delete = client_id
+        if submit_button:
+            if not name or not email:
+                st.error("Please provide both name and email.")
+            else:
+                try:
+                    client_id = db.add_client(name, email)
+                    st.success(f"Client '{name}' added successfully!")
+                    # Force a rerun to refresh the client list
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error adding client: {str(e)}")
+    
+    # Delete Client Section
+    st.subheader("Delete Client")
+    client_options = [f"{client[1]} ({client[2]})" for client in clients] if clients else []
+    
+    if client_options:
+        selected_client = st.selectbox("Select Client to Delete", client_options)
         
-        # Verification for client deletion
-        if st.session_state.client_to_delete:
-            st.warning(f"Are you sure you want to delete client {list(clients.keys())[list(clients.values()).index(st.session_state.client_to_delete)]}?")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Confirm Delete", key="confirm_client_delete"):
-                    try:
-                        # Delete the client
-                        db.delete_client(st.session_state.client_to_delete)
-                        st.success("Client deleted successfully!")
-                        # Reset the client to delete
-                        st.session_state.client_to_delete = None
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error deleting client: {str(e)}")
-            
-            with col2:
-                if st.button("Cancel", key="cancel_client_delete"):
-                    # Reset the client to delete
-                    st.session_state.client_to_delete = None
+        # Two-step confirmation for deletion
+        if 'delete_client_confirmed' not in st.session_state:
+            st.session_state.delete_client_confirmed = False
         
-        # Add New Client Form
-        st.markdown("---")
-        st.subheader("Add New Client")
-        with st.form("add_client_form"):
-            new_name = st.text_input("Client Name")
-            new_email = st.text_input("Client Email")
-            
-            if st.form_submit_button("Add Client"):
-                if new_name and new_email:
-                    try:
-                        db.add_client(new_name, new_email)
-                        st.success("Client added successfully!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error adding client: {str(e)}")
-                else:
-                    st.error("Please fill in all fields!")
+        if st.button("Delete Client"):
+            if not st.session_state.delete_client_confirmed:
+                st.warning(f"Are you sure you want to delete {selected_client}? This action cannot be undone.")
+                st.session_state.delete_client_confirmed = True
+            else:
+                # Find the client ID
+                client_to_delete = next(
+                    client for client in clients 
+                    if f"{client[1]} ({client[2]})" == selected_client
+                )
+                try:
+                    db.delete_client(client_to_delete[0])
+                    st.success(f"Client {selected_client} deleted successfully!")
+                    # Reset confirmation and force rerun
+                    st.session_state.delete_client_confirmed = False
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error deleting client: {str(e)}")
+                    st.session_state.delete_client_confirmed = False
+    else:
+        st.info("No clients available to delete.")
 
 def get_persona_analyzer() -> ai_persona.PersonaAnalyzer:
     """Get a PersonaAnalyzer instance with current settings."""
