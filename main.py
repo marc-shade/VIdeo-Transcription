@@ -208,6 +208,7 @@ def render_sidebar_settings():
             st.rerun()
     
     # Client Management section
+    db = TranscriptionDB()
     with st.sidebar.expander("👥 Client Management", expanded=False):
         st.subheader("Add New Client")
         with st.form("add_client_form"):
