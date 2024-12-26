@@ -1,3 +1,4 @@
+<img src="https://github.com/marc-shade/VIdeo-Transcription/blob/main/assets/dragon.png" align="right" style="max-width: 300px;" />
 # 🎥 AI Video Transcription with Persona Generation
 
 A powerful video transcription tool that not only transcribes videos but also generates AI personas that can engage in conversations about the content. Built with Streamlit and powered by Ollama for local AI processing.
