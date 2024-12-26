@@ -29,6 +29,14 @@ A powerful video transcription tool that not only transcribes videos but also ge
 
 ## 📦 Installation
 
+### Dependencies and Installation
+
+#### Prerequisites
+- Python 3.10+
+- pip
+- FFmpeg (for audio/video processing)
+
+#### Installation Steps
 1. Clone the repository:
 ```bash
 git clone https://github.com/marc-shade/Video-Transcription.git
@@ -46,14 +54,20 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Install FFmpeg (if not already installed):
+4. Install additional system dependencies:
 - macOS: `brew install ffmpeg`
-- Windows: Download from [FFmpeg website](https://ffmpeg.org/download.html)
-- Linux: `sudo apt-get install ffmpeg`
+- Ubuntu/Debian: `sudo apt-get install ffmpeg`
+- Windows: Download from FFmpeg official website
 
-5. Install and start Ollama:
-- Follow instructions at [ollama.ai](https://ollama.ai/)
-- Pull a model: `ollama pull mistral:instruct`
+#### Running the Application
+```bash
+streamlit run main.py
+```
+
+#### Troubleshooting
+- Ensure all dependencies are correctly installed
+- Check that FFmpeg is in your system PATH
+- Verify Python version compatibility
 
 ## 🚀 Usage
 
@@ -110,6 +124,24 @@ The application uses SQLite with the following main tables:
 - clients: Store client information
 - transcriptions: Store video transcriptions
 - persona_prompts: Store generated AI personas
+
+## 📁 Project Structure
+
+```
+video_transcription/
+├── main.py             # Primary Streamlit application
+├── database.py         # Database management
+├── utils.py            # Audio/video processing utilities
+├── ai_persona.py       # AI persona generation
+├── requirements.txt    # Project dependencies
+└── README.md           # Project documentation
+```
+
+### Key Components
+- **main.py**: Central Streamlit interface for video transcription
+- **database.py**: SQLite database operations for clients and transcripts
+- **utils.py**: Core utility functions for audio extraction and transcription
+- **ai_persona.py**: AI-powered persona analysis and generation
 
 ## 🤝 Contributing
 

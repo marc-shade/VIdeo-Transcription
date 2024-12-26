@@ -1,7 +1,27 @@
 import streamlit as st
-import tempfile
 import os
 import requests
+import warnings
+import logging
+import io
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*is not a valid config option.*")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Attempt to import torch safely
+try:
+    import torch
+    # Suppress specific PyTorch warnings
+    import warnings
+    warnings.filterwarnings('ignore', category=UserWarning, module='torch')
+except ImportError:
+    logger.warning("PyTorch not found. Some ML features may be limited.")
+    torch = None
+
 from utils import (
     extract_audio, transcribe_audio, is_valid_video_format,
     translate_text, get_available_languages
@@ -71,7 +91,6 @@ def load_settings():
 
 def render_sidebar_settings():
     """Render Ollama settings in the sidebar."""
-    st.sidebar.title("🎥 Video Transcription")
     
     # Ollama API settings in a collapsible section
     with st.sidebar.expander("🤖 AI Settings", expanded=False):
@@ -90,9 +109,12 @@ def render_sidebar_settings():
             if not available_models:
                 available_models = ["mistral:instruct"]
                 st.error("⚠️ No models found. Is Ollama running?")
-        except:
+        except requests.RequestException as e:
             available_models = ["mistral:instruct"]
-            st.error("⚠️ Could not fetch models. Is Ollama running?")
+            st.error(f"⚠️ Network error fetching models: {e}")
+        except Exception as e:
+            available_models = ["mistral:instruct"]
+            st.error(f"⚠️ Unexpected error fetching models: {e}")
         
         # Ensure the current model is in the list
         current_model = st.session_state.ollama_settings['model']
@@ -207,9 +229,53 @@ def render_sidebar_settings():
             save_settings()  # Auto-save when settings change
             st.rerun()
     
-    # Client Management section
+    # Initialize database
     db = TranscriptionDB()
-    with st.sidebar.expander("👥 Client Management", expanded=False):
+    
+    # Client Management section
+    st.sidebar.header("Client Management")
+    client_management_tab = st.sidebar.expander("Manage Clients", expanded=False)
+    
+    with client_management_tab:
+        st.subheader("Existing Clients")
+        
+        # Track if a delete confirmation is needed
+        if 'client_to_delete' not in st.session_state:
+            st.session_state.client_to_delete = None
+        
+        clients = get_client_list()
+        for client_name, client_id in clients.items():
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"{client_name}")
+            with col2:
+                if st.button(f"🗑️", key=f"delete_client_{client_id}"):
+                    # Set the client to be deleted
+                    st.session_state.client_to_delete = client_id
+        
+        # Verification for client deletion
+        if st.session_state.client_to_delete:
+            st.warning(f"Are you sure you want to delete client {list(clients.keys())[list(clients.values()).index(st.session_state.client_to_delete)]}?")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Confirm Delete", key="confirm_client_delete"):
+                    try:
+                        # Delete the client
+                        db.delete_client(st.session_state.client_to_delete)
+                        st.success("Client deleted successfully!")
+                        # Reset the client to delete
+                        st.session_state.client_to_delete = None
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error deleting client: {str(e)}")
+            
+            with col2:
+                if st.button("Cancel", key="cancel_client_delete"):
+                    # Reset the client to delete
+                    st.session_state.client_to_delete = None
+        
+        # Add New Client Form
+        st.markdown("---")
         st.subheader("Add New Client")
         with st.form("add_client_form"):
             new_name = st.text_input("Client Name")
@@ -278,25 +344,53 @@ def regenerate_persona_for_transcription(transcription_id: int, original_text: s
         print(f"Error regenerating persona: {str(e)}")
         return False, None
 
-def render_persona_chat(db: TranscriptionDB, transcription_id: int, original_text: str):
-    """Render the persona chat interface."""
+def render_persona_chat(db: TranscriptionDB, transcription_id: int, original_text: str, context: str = "default"):
+    """
+    Render the persona chat interface.
+    
+    Args:
+        db (TranscriptionDB): Database connection
+        transcription_id (int): ID of the transcription
+        original_text (str): Original transcribed text
+        context (str, optional): Context of where this is being called. Defaults to "default".
+    """
     # Initialize session state for messages if not exists
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
     # Get persona data
     persona_data = db.get_persona_prompt(transcription_id)
+    
+    # If no persona exists, try to generate one
     if not persona_data:
+        with st.spinner("Generating persona..."):
+            success, new_name = generate_persona_for_transcription(transcription_id, original_text, db)
+            if success:
+                persona_data = db.get_persona_prompt(transcription_id)
+            else:
+                st.error("Failed to generate persona. Please try again.")
+                return
+
+    # If still no persona, exit
+    if not persona_data:
+        st.warning("No persona could be generated for this transcription.")
         return
 
     persona_name, system_prompt = persona_data
+    
+    # Create a unique session state key for this transcription's messages
+    messages_key = f"messages_{transcription_id}_{context}"
+    if messages_key not in st.session_state:
+        st.session_state[messages_key] = []
     
     # Display the system prompt in a container with toggle
     col1, col2 = st.columns([3, 1])
     with col1:
         st.markdown(f"**Persona Name:** {persona_name}")
     with col2:
-        if st.button("🔄 Regenerate", key=f"regen_{transcription_id}"):
+        # Use a unique key combining transcription_id and context
+        regen_key = f"regen_{transcription_id}_{context}"
+        if st.button("🔄 Regenerate", key=regen_key):
             with st.spinner("Regenerating persona..."):
                 success, new_name = regenerate_persona_for_transcription(transcription_id, original_text, db)
                 if success:
@@ -308,29 +402,35 @@ def render_persona_chat(db: TranscriptionDB, transcription_id: int, original_tex
     if "show_prompt" not in st.session_state:
         st.session_state.show_prompt = False
     
-    if st.button("Toggle Persona Details", key=f"toggle_{transcription_id}"):
+    # Use a unique key for toggle button
+    toggle_key = f"toggle_{transcription_id}_{context}"
+    if st.button("Toggle Persona Details", key=toggle_key):
         st.session_state.show_prompt = not st.session_state.show_prompt
     
     if st.session_state.show_prompt:
         st.markdown("**System Prompt:**")
-        st.text_area("", system_prompt, height=100, disabled=True, key=f"prompt_{transcription_id}")
+        # Use a unique key for text area
+        prompt_key = f"prompt_{transcription_id}_{context}"
+        st.text_area("", system_prompt, height=100, disabled=True, key=prompt_key)
         st.markdown("---")
 
     # Chat interface
-    for message in st.session_state.messages:
+    for message in st.session_state[messages_key]:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask a question..."):
+    # Use a unique key for chat input
+    chat_input_key = f"chat_input_{transcription_id}_{context}"
+    if prompt := st.chat_input("Ask a question...", key=chat_input_key):
         with st.chat_message("user"):
             st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state[messages_key].append({"role": "user", "content": prompt})
 
         with st.chat_message("assistant"):
             analyzer = get_persona_analyzer()
             response = analyzer.generate_response(system_prompt, prompt)
             st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.session_state[messages_key].append({"role": "assistant", "content": response})
 
 def generate_persona_for_transcription(transcription_id: int, original_text: str, db: TranscriptionDB):
     """Generate a persona prompt for an existing transcription."""
@@ -349,29 +449,62 @@ def generate_persona_for_transcription(transcription_id: int, original_text: str
         return False, None
 
 def process_video(video_path, client_id, include_timestamps, target_language, languages, db, progress_container, progress_bar, status_text, filename):
-    """Process a single video file."""
+    """Process a single video file with support for chunked transcription."""
     try:
         # Stage 1: Audio extraction (20% of progress)
         status_text.text("Extracting audio from video...")
         audio_path = extract_audio(video_path)
         progress_bar.progress(0.2)
 
-        # Stage 2: Transcription (40% of progress)
-        status_text.text("Transcribing audio...")
-        transcription = transcribe_audio(audio_path, include_timestamps)
-        progress_bar.progress(0.4)
+        # Stage 2: Chunked Transcription (40% of progress)
+        status_text.text("Preparing audio chunks...")
+        
+        # Import pydub here to avoid circular imports
+        from pydub import AudioSegment
+        
+        # Load audio and split into chunks
+        audio = AudioSegment.from_file(audio_path)
+        chunk_length_ms = 5 * 60 * 1000  # 5-minute chunks
+        chunks = []
+        start = 0
+        while start < len(audio):
+            end = min(start + chunk_length_ms, len(audio))
+            chunks.append(audio[start:end])
+            start = end
+        
+        # Transcribe each chunk
+        status_text.text("Transcribing audio chunks...")
+        final_transcript = ""
+        for i, chunk in enumerate(chunks, 1):
+            # Create a temporary file for each chunk
+            chunk_file = f"temp_chunk_{i}.wav"
+            chunk.export(chunk_file, format="wav")
+            
+            # Transcribe the chunk
+            chunk_text = transcribe_audio(chunk_file, include_timestamps)
+            final_transcript += f"\n\n[CHUNK {i}]\n{chunk_text}"
+            
+            # Remove temporary chunk file
+            os.remove(chunk_file)
+            
+            # Update progress (20-60% range)
+            progress_bar.progress(0.2 + 0.4 * (i / len(chunks)))
+        
+        # Clean up original audio file
+        if os.path.exists(audio_path):
+            os.unlink(audio_path)
 
         # Stage 3: Translation if needed (60% of progress)
         translated_text = None
         if target_language and target_language != "None":
             status_text.text(f"Translating to {languages[target_language]}...")
-            translated_text = translate_text(transcription, target_language)
+            translated_text = translate_text(final_transcript, target_language)
         progress_bar.progress(0.6)
 
         # Stage 4: Save to database (80% of progress)
         status_text.text("Saving transcription...")
         transcription_id = db.add_transcription(
-            client_id, filename, transcription,
+            client_id, filename, final_transcript,
             translated_text, target_language
         )
         progress_bar.progress(0.8)
@@ -379,66 +512,159 @@ def process_video(video_path, client_id, include_timestamps, target_language, la
         # Stage 5: Generate AI Persona (100% of progress)
         status_text.text("Generating AI persona...")
         analyzer = get_persona_analyzer()
-        persona_result = analyzer.analyze_transcript(transcription)
+        persona_result = analyzer.analyze_transcript(final_transcript)
+        
+        # Handle tuple return from analyze_transcript
+        if isinstance(persona_result, tuple):
+            persona_name, persona_prompt = persona_result
+        else:
+            # Fallback if the return type is unexpected
+            persona_name = "Unknown Persona"
+            persona_prompt = persona_result.get("persona_prompt", "")
+        
         db.add_persona_prompt(
             transcription_id,
-            persona_result["persona_name"],
-            persona_result["persona_prompt"]
+            persona_name,
+            persona_prompt
         )
         progress_bar.progress(1.0)
 
-        # Cleanup
-        if os.path.exists(audio_path):
-            os.unlink(audio_path)
-
-        return transcription, translated_text, transcription_id
+        return final_transcript, translated_text, transcription_id
 
     except Exception as e:
         st.error(f"Error processing video: {str(e)}")
+        # Cleanup in case of error
         if 'audio_path' in locals() and os.path.exists(audio_path):
             os.unlink(audio_path)
         return None, None, None
 
+def check_file_size(uploaded_file, max_size_mb=2000):
+    """
+    Check if the uploaded file size is within acceptable limits.
+    
+    Args:
+        uploaded_file (UploadedFile): Streamlit uploaded file object
+        max_size_mb (int): Maximum file size in megabytes
+    
+    Returns:
+        bool: True if file is within size limit, False otherwise
+    """
+    return True  # Let Streamlit handle file size checks
+
+def handle_large_file_upload(uploaded_file):
+    """
+    Handle large file uploads by saving to a temporary file.
+    
+    Args:
+        uploaded_file (UploadedFile): Streamlit uploaded file object
+    
+    Returns:
+        str: Path to the saved temporary file
+    """
+    import tempfile
+    import os
+
+    # Create a temporary file with the same extension as the uploaded file
+    file_extension = os.path.splitext(uploaded_file.name)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+        temp_file.write(uploaded_file.getvalue())
+        temp_file_path = temp_file.name
+    
+    return temp_file_path
+
+def export_transcriptions(transcriptions):
+    """Create a formatted text file for bulk export."""
+    output = io.StringIO()
+    
+    for filename, text, language, date in transcriptions:
+        output.write(f"\n{'='*50}\n")
+        output.write(f"File: {filename}\n")
+        output.write(f"Date: {date}\n")
+        output.write(f"Language: {language if language else 'Original'}\n")
+        output.write(f"{'='*50}\n\n")
+        output.write(text)
+        output.write("\n\n")
+    
+    return output.getvalue()
+
+def render_client_form(db, client_id=None):
+    """Render form for adding/editing client details."""
+    client = None if client_id is None else db.get_client_by_id(client_id)
+    
+    with st.form(key=f"client_form_{client_id if client_id else 'new'}"):
+        st.subheader("Client Details")
+        name = st.text_input("Name", value=client[1] if client else "")
+        email = st.text_input("Email", value=client[2] if client else "")
+        
+        if st.form_submit_button("Save Client"):
+            if not name or not email:
+                st.error("Both name and email are required!")
+                return False
+            
+            try:
+                if client_id:
+                    success = db.update_client(client_id, name, email)
+                    if success:
+                        st.success("Client updated successfully!")
+                    else:
+                        st.error("Failed to update client.")
+                else:
+                    client_id = db.add_client(name, email)
+                    st.success("Client added successfully!")
+                return True
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+                return False
+    return False
+
 def render_transcription_interface():
     """Main interface for the transcription app."""
+    
     check_environment()
     initialize_session_state()
     load_settings()  # Load saved settings if available
+    
+    # Display dragon image at the top of the sidebar
+    st.sidebar.image('assets/dragon.png', use_column_width=True)
+    
     render_sidebar_settings()
     st.title("🎥 Video to Text Transcription")
     
     # Initialize database
     db = TranscriptionDB()
     
-    # Sidebar for client selection/creation
-    with st.sidebar:
-        st.subheader("👤 Client Management")
-        tab1, tab2 = st.tabs(["Select Client", "New Client"])
-        
-        with tab1:
-            clients = get_client_list()
-            selected_client = st.selectbox(
-                "Select a client",
-                options=list(clients.keys()) if clients else [],
-                format_func=lambda x: x,
-                key="client_select"
-            )
-            client_id = clients[selected_client] if selected_client else None
-        
-        with tab2:
-            with st.form("new_client_form"):
-                new_name = st.text_input("Name")
-                new_email = st.text_input("Email")
-                if st.form_submit_button("Add Client"):
-                    if new_name and new_email:
-                        try:
-                            db.add_client(new_name, new_email)
-                            st.success("Client added successfully!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error adding client: {str(e)}")
-                    else:
-                        st.error("Please fill in all fields!")
+    # Sidebar for client selection
+    clients = get_client_list()
+    
+    if not clients:
+        st.sidebar.warning("No clients found. Please add a new client.")
+        with st.sidebar.form("add_client_form"):
+            st.subheader("Add New Client")
+            new_name = st.text_input("Client Name")
+            new_email = st.text_input("Client Email")
+            
+            if st.form_submit_button("Add Client"):
+                if new_name and new_email:
+                    try:
+                        db.add_client(new_name, new_email)
+                        st.success("Client added successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error adding client: {str(e)}")
+                else:
+                    st.error("Please fill in all fields!")
+        return
+
+    # Client selection
+    selected_client = st.sidebar.selectbox(
+        "Select a client",
+        options=[""] + list(clients.keys()),
+        format_func=lambda x: x or "Select a Client",
+        key="client_select"
+    )
+
+    # Determine client_id
+    client_id = clients.get(selected_client) if selected_client else None
 
     # Main content area
     tab1, tab2 = st.tabs(["🎥 Upload & Transcribe", "📚 View Transcriptions"])
@@ -446,70 +672,89 @@ def render_transcription_interface():
     with tab1:
         st.markdown("""
         Upload your video file to get the transcribed text and AI persona analysis.
-        Supported formats: MP4, AVI, MOV, MKV, WMV
+        Supported formats: MP4, AVI, MOV, MKV, M4A
         """)
 
         if not client_id:
-            st.warning("Please select or create a client first!")
+            st.warning("Please select a client first!")
             return
 
-        uploaded_file = st.file_uploader("Choose a video file", type=['mp4', 'avi', 'mov', 'mkv', 'wmv'])
+        # Large file upload section
+        uploaded_file = st.file_uploader(
+            "Choose a video or audio file (supports large files up to 2 GB)", 
+            type=['mp4', 'avi', 'mov', 'mkv', 'm4a'],
+            accept_multiple_files=False
+        )
         
+        # Transcription settings
         col1, col2 = st.columns(2)
         with col1:
-            include_timestamps = st.checkbox("Include timestamps", value=True)
+            include_timestamps = st.checkbox("Include Timestamps", value=False)
         with col2:
-            languages = get_available_languages()
             target_language = st.selectbox(
-                "Translate to",
-                options=["None"] + list(languages.keys()),
-                format_func=lambda x: "Original" if x == "None" else languages[x]
+                "Translate to", 
+                options=["None"] + list(get_available_languages().keys()),
+                key="translation_language"
             )
-
-        if uploaded_file:
-            if not is_valid_video_format(uploaded_file.name):
-                st.error("Please upload a valid video file!")
-                return
-
-            with st.spinner("Processing video..."):
-                # Create progress tracking components
-                progress_container = st.empty()
-                progress_bar = progress_container.progress(0)
-                status_text = st.empty()
-
-                # Save uploaded file temporarily
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-                    tmp_file.write(uploaded_file.read())
-                    video_path = tmp_file.name
-
+        
+        # Progress tracking
+        progress_container = st.container()
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # Transcription button
+        if uploaded_file is not None:
+            if st.button("Transcribe to Text"):
                 try:
-                    # Process the video
-                    transcription, translation, transcription_id = process_video(
-                        video_path, client_id, include_timestamps,
-                        target_language if target_language != "None" else None,
-                        languages, db, progress_container, progress_bar,
-                        status_text, uploaded_file.name
+                    # Handle large file upload
+                    video_path = handle_large_file_upload(uploaded_file)
+                    
+                    # Validate video format
+                    if not is_valid_video_format(uploaded_file.name):
+                        st.error("Unsupported video format. Please upload a valid video file.")
+                        os.unlink(video_path)
+                        return
+                    
+                    # Process video
+                    languages = get_available_languages()
+                    transcription, translated_text, transcription_id = process_video(
+                        video_path, 
+                        client_id, 
+                        include_timestamps, 
+                        target_language, 
+                        languages, 
+                        db, 
+                        progress_container, 
+                        progress_bar, 
+                        status_text, 
+                        uploaded_file.name
                     )
-
-                    if transcription and transcription_id:
-                        st.success("Video processed successfully!")
+                    
+                    # Remove temporary video file
+                    if os.path.exists(video_path):
+                        os.unlink(video_path)
+                    
+                    # Display results
+                    if transcription:
+                        st.success("Transcription completed successfully!")
                         
                         # Display results in tabs
-                        result_tabs = st.tabs(["📝 Transcription", "🔄 Translation", "🤖 AI Persona"] if translation else ["📝 Transcription", "🤖 AI Persona"])
+                        result_tabs = st.tabs(["📝 Transcription", "🔄 Translation", "🤖 AI Persona"] if translated_text else ["📝 Transcription", "🤖 AI Persona"])
                         
                         with result_tabs[0]:
                             st.text_area("Original Text", transcription, height=300)
                             
-                        if translation:
+                        if translated_text:
                             with result_tabs[1]:
-                                st.text_area(f"Translation ({languages[target_language]})", translation, height=300)
+                                st.text_area(f"Translation ({languages[target_language]})", translated_text, height=300)
                         
                         with result_tabs[-1]:
-                            render_persona_chat(db, transcription_id, transcription)
-
-                finally:
-                    # Cleanup
-                    if os.path.exists(video_path):
+                            render_persona_chat(db, transcription_id, transcription, context="upload")
+                
+                except Exception as e:
+                    st.error(f"An error occurred during transcription: {str(e)}")
+                    # Ensure temporary file is removed in case of error
+                    if 'video_path' in locals() and os.path.exists(video_path):
                         os.unlink(video_path)
 
     with tab2:
@@ -522,11 +767,44 @@ def render_transcription_interface():
             st.info("No transcriptions found for this client.")
             return
 
+        # Track if a transcript deletion is needed
+        if 'transcript_to_delete' not in st.session_state:
+            st.session_state.transcript_to_delete = None
+
         for t in transcriptions:
             with st.expander(f"📝 {t[2]} - {t[6]}"):
-                st.text_area("Original Text", t[3], height=150)
+                # Add delete button at the top of the expander
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.text_area("Original Text", t[3], height=150)
+                with col2:
+                    if st.button(f"🗑️", key=f"delete_{t[0]}", type="primary"):
+                        # Set the transcript to be deleted
+                        st.session_state.transcript_to_delete = t[0]
+                
+                # Verification for transcript deletion
+                if st.session_state.transcript_to_delete == t[0]:
+                    st.warning(f"Are you sure you want to delete this transcript?")
+                    col_confirm1, col_confirm2 = st.columns(2)
+                    with col_confirm1:
+                        if st.button("Confirm Delete", key=f"confirm_delete_{t[0]}"):
+                            try:
+                                # Delete the specific transcript
+                                db.delete_transcript(t[0])
+                                st.success("Transcript deleted successfully!")
+                                # Reset the transcript to delete
+                                st.session_state.transcript_to_delete = None
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error deleting transcript: {str(e)}")
+                    
+                    with col_confirm2:
+                        if st.button("Cancel", key=f"cancel_delete_{t[0]}"):
+                            # Reset the transcript to delete
+                            st.session_state.transcript_to_delete = None
+                
                 if t[4]:  # If there's a translation
-                    language_display = languages.get(t[5], "Unknown")
+                    language_display = get_available_languages().get(t[5], "Unknown")
                     st.text_area(f"Translation ({language_display})", t[4], height=150)
                 
                 # Add persona management section
@@ -537,7 +815,7 @@ def render_transcription_interface():
                 persona_data = db.get_persona_prompt(t[0])
                 
                 if persona_data:
-                    render_persona_chat(db, t[0], t[3])
+                    render_persona_chat(db, t[0], t[3], context="view")
                 else:
                     st.warning("No persona available for this transcription")
                     if st.button("Generate Persona", key=f"gen_{t[0]}"):

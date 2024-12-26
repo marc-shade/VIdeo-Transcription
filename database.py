@@ -201,7 +201,8 @@ class TranscriptionDB:
                    WHERE transcription_id = ?''',
                 (transcription_id,)
             )
-            return cursor.fetchone()
+            result = cursor.fetchone()
+            return result  # This will return None if no result is found
 
     def get_all_persona_prompts(self) -> List[Tuple]:
         """Get all persona prompts."""
@@ -368,3 +369,89 @@ class TranscriptionDB:
             except Exception as e:
                 print(f"Error updating persona prompt: {str(e)}")
                 return False
+
+    def delete_transcript(self, transcript_id: int) -> bool:
+        """
+        Delete a specific transcript and its associated data.
+        
+        Args:
+            transcript_id (int): The ID of the transcript to delete.
+        
+        Returns:
+            bool: True if deletion was successful, False otherwise.
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Delete associated persona prompts first
+                cursor.execute('''
+                    DELETE FROM persona_prompts 
+                    WHERE transcription_id = ?
+                ''', (transcript_id,))
+                
+                # Delete the transcript
+                cursor.execute('''
+                    DELETE FROM transcriptions 
+                    WHERE id = ?
+                ''', (transcript_id,))
+                
+                # Commit the transaction
+                conn.commit()
+                
+                # Return True if at least one row was affected
+                return cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error deleting transcript: {e}")
+            return False
+
+    def delete_client(self, client_id: int) -> bool:
+        """
+        Delete a specific client and all their associated transcripts.
+        
+        Args:
+            client_id (int): The ID of the client to delete.
+        
+        Returns:
+            bool: True if deletion was successful, False otherwise.
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # First, find and delete all transcripts for this client
+                cursor.execute('''
+                    SELECT id FROM transcriptions 
+                    WHERE client_id = ?
+                ''', (client_id,))
+                
+                transcript_ids = [row[0] for row in cursor.fetchall()]
+                
+                # Delete associated persona prompts for these transcripts
+                if transcript_ids:
+                    cursor.execute('''
+                        DELETE FROM persona_prompts 
+                        WHERE transcription_id IN ({})
+                    '''.format(','.join(map(str, transcript_ids)))
+                    )
+                
+                # Delete all transcripts for this client
+                cursor.execute('''
+                    DELETE FROM transcriptions 
+                    WHERE client_id = ?
+                ''', (client_id,))
+                
+                # Delete the client
+                cursor.execute('''
+                    DELETE FROM clients 
+                    WHERE id = ?
+                ''', (client_id,))
+                
+                # Commit the transaction
+                conn.commit()
+                
+                # Return True if at least one row was affected
+                return cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error deleting client: {e}")
+            return False

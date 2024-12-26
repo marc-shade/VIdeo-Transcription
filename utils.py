@@ -3,32 +3,48 @@ from moviepy.editor import VideoFileClip
 import tempfile
 import os
 from deep_translator import GoogleTranslator
+import soundfile as sf
+import librosa
 
 def is_valid_video_format(filename):
     """
     Check if the video format is supported
     """
-    valid_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.wmv']
+    valid_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.m4a']
     return os.path.splitext(filename.lower())[1] in valid_extensions
 
 def extract_audio(video_path):
     """
-    Extract audio from video file
+    Extract audio from video or audio file
     """
     try:
-        # Load video
-        video = VideoFileClip(video_path)
+        # Determine file type
+        file_extension = os.path.splitext(video_path)[1].lower()
         
         # Create temporary file for audio
         temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
         temp_audio_path = temp_audio.name
         temp_audio.close()
 
+        # If it's already an audio file, just convert it
+        if file_extension in ['.m4a', '.mp3', '.wav', '.flac', '.ogg']:
+            # Read the audio file
+            audio, sample_rate = librosa.load(video_path, sr=None)
+            
+            # Write to wav
+            sf.write(temp_audio_path, audio, sample_rate)
+            
+            return temp_audio_path
+
+        # If it's a video file, use moviepy
+        video = VideoFileClip(video_path)
+        
         # Extract audio
         video.audio.write_audiofile(temp_audio_path, verbose=False, logger=None)
         video.close()
 
         return temp_audio_path
+
     except Exception as e:
         raise Exception(f"Error extracting audio: {str(e)}")
 
